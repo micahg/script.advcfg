@@ -1,8 +1,12 @@
 import os, json, xbmc, xbmcplugin, xbmcgui, xbmcaddon
+from shutil import copyfile
 
-ADD_OPTION = '[I][B]Add Host[/B][/I]'
-DELETE_OPTION = '[I][B]Delete Host[/B][/I]'
-NULL_OPTION = '[I][B]Unset XFF[/B][/I]'
+
+dlg = xbmcgui.Dialog()
+
+
+def log(message):
+    xbmc.log('[script.advcfg] {}'.format(message), xbmc.LOGNOTICE)
 
 
 def getAddonFolder():
@@ -10,6 +14,7 @@ def getAddonFolder():
         return xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
     except:
         return os.getcwd()
+
 
 def getSettingsFile():
     return os.path.join(getAddonFolder(), 'settings.json')
@@ -36,62 +41,57 @@ def loadSettings():
         settings = {}
     return settings
 
-def addOption():
-    name = xbmcgui.Dialog().input('Enter Name', type=xbmcgui.INPUT_ALPHANUM)
-    if name == '':
-        sys.exit(0)
-    elif name.lower() == ADD_OPTION.lower():
-        xbmcgui.Dialog().ok('Error', 'Invalid name')
-        sys.exit(0)
-    value = xbmcgui.Dialog().input('Enter IP', type=xbmcgui.INPUT_IPADDRESS)
-    if value == '':
-        sys.exit(0)
-    
-    settings[name] = value
-    writeSetingsFile(settings)
+def updateSettings():
+    res = dlg.browse(1, 'Select Options JSON', 'files')
+    if not res:
+        return
+    log('Copying {} to local settings'.format(res))
+    copyfile(res, getSettingsFile())
 
 
-def deleteOption(settings):
-    names = settings.keys()
-    result = xbmcgui.Dialog().select('Choose an XFF Option', names)
-    if result < 0:
+def updateAddonSettings(addon_name, settings):
+    addon = xbmcaddon.Addon(addon_name)
+    for setting in settings:
+        log('Updating "{0}" to "{1}"'.format(setting['setting'], setting['value']))
+        addon.setSetting(setting['setting'], setting['value'])
+
+
+def selectAddonSettings(addon_name, addon_settings):
+    settings = addon_settings['settings']
+    names = []
+    for setting in settings:
+        names.append(setting['name'])
+    idx = dlg.select('Choose setting profile', names)
+    log('Updating {} with "{}" configuration...'.format(addon_name, names[idx]))
+    return updateAddonSettings(addon_name, settings[idx]['config'])
+
+
+def selectAddon(settings):
+    addons = []
+    for setting in settings:
+        addons.append(setting['addon'])
+
+    if len(addons) == 0:
+        dlg.ok('Error', 'Settings appear empty. Import some settings')
         sys.exit(0)
-    name = names[result]
-    addr = settings[name]
-    new_settings = {key: value for key, value in settings.items()
-                    if key is not name}
-    writeSetingsFile(new_settings)
-    xbmcgui.Dialog().notification('Setting updated',
-                                  'Deleted XFF Option {0} ({1})'.format(name, addr),
-                                  xbmcgui.NOTIFICATION_INFO)
+
+    idx = dlg.select('Choose an addon', addons)
+    if idx < 0:
+        sys.exit(0)
+
+    return selectAddonSettings(addons[idx], settings[idx])
+
+
+result = dlg.select('Options', ['Change Options', 'Load Config File'])
+if result < 0:
     sys.exit(0)
 
+if result == 1:
+    updateSettings()
+    sys.exit(0)
 
 my_settings = xbmcaddon.Addon(id=xbmcaddon.Addon().getAddonInfo('id'))
 
 settings = loadSettings()
 
-values = settings.keys()
-values.insert(0, DELETE_OPTION)
-values.insert(0, ADD_OPTION)
-values.insert(0, NULL_OPTION)
-
-result = xbmcgui.Dialog().select('Choose an XFF Option', values)
-if result < 0:
-    sys.exit(0)
-
-if values[result] == ADD_OPTION:
-    addOption()
-elif values[result] == DELETE_OPTION:
-    deleteOption(settings)
-else:
-    
-    name = values[result]
-    if name == NULL_OPTION:
-        addr = None
-    else:
-        addr = settings[name]
-    xbmcaddon.Addon('plugin.video.mlslive').setSetting('xff', addr)
-    xbmcgui.Dialog().notification('Setting updated',
-                                  'XFF set to {0} ({1})'.format(name, addr),
-                                  xbmcgui.NOTIFICATION_INFO)
+selectAddon(settings)
