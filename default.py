@@ -1,4 +1,4 @@
-import os, json, xbmc, xbmcplugin, xbmcgui, xbmcaddon
+import os, json, xbmc, xbmcgui, xbmcaddon, xbmcvfs
 from shutil import copyfile
 
 
@@ -46,7 +46,7 @@ def updateSettings():
     if not res:
         return
     log('Copying {} to local settings'.format(res))
-    copyfile(res, getSettingsFile())
+    xbmcvfs.copy(res, getSettingsFile())
 
 
 def updateAddonSettings(addon_name, settings):

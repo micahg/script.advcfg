@@ -1,3 +1,7 @@
+[B]Version 0.0.3[/B]
+
+- use xbmcvfs to copy files to enable samba sources, etc.
+
 [B]Version 0.0.2[/B]
 
 - use dynamic config to allow updating all sorts of things
